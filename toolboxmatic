@@ -12,6 +12,19 @@ err() {
 }
 
 #######################################
+# Resets Tools Configuration
+# Arguments:
+#   None
+# Returns:
+#   0
+#######################################
+reset_toolbox() {
+    err "INFO: Resetting toolbox..."
+    res=`${SDB} unregister-host --all -y`
+}
+
+
+#######################################
 # Issues a query
 # Arguments:
 #   String.
@@ -19,7 +32,11 @@ err() {
 #   Returns
 #######################################
 query() {
-  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+    export MYSQL_PWD=${DB_PASS}
+    q=$*
+    cmd="${CLI} -h ${MASTER} -u ${DB_USER} -P ${MA_PORT} -B --skip-column-names -e \"${q}\""
+    err "INFO: Sending query ${cmd}"
+    res=$(eval $cmd)
 }
 
 echo Hi! I am toolboxmatic, your automatic SingleStore Toolbox configurator!
@@ -29,7 +46,7 @@ echo
 read -p "Master Aggreator [localhost]: " MASTER
 read -p "Master Aggregator Port [3306]: " MA_PORT
 read -p "Username [root]: " DB_USER
-read -p "Password []:" DB_PASS
+read -p "Password []: " DB_PASS
 read -p "SSH key (enter full path or leave empty for single host deployment) []: " SSH_KEY
 
 if [ -z "${MASTER}" ]; then
@@ -57,16 +74,88 @@ elif [ -z "${CLI}" ]; then
 fi
 
 # Let's check if toolbox is installed...
-CLI=`which sdb-toolbox-config`
+SDB=`which sdb-toolbox-config`
 
-if [ -z "${CLI}" ]; then
+if [ -z "${SDB}" ]; then
     err "ERROR: SingleStore Tools are not found. Please install package singlestoredb-toolbox. For more information visit: https://docs.singlestore.com/db/v7.6/en/user-and-cluster-administration/migrate-from-ops-to-tools/sudo/install-singlestore-tools.html"
     exit 1;
 fi
 
-err("DEBUG: MA   = ${MASTER}")
-err("DEBUG: PORT = ${MA_PORT}")
-err("DEBUG: USER = ${DB_USER}")
-err("DEBUG: PASS = ${DB_PASS}")
-err("DEBUG: SSH  = ${SSH_KEY}")
-err("DEBUG: CLI  = ${CLI}")
+err "DEBUG: MA   = ${MASTER}"
+err "DEBUG: PORT = ${MA_PORT}"
+err "DEBUG: USER = ${DB_USER}"
+err "DEBUG: PASS = ${DB_PASS}"
+err "DEBUG: SSH  = ${SSH_KEY}"
+err "DEBUG: CLI  = ${CLI}"
+err "DEBUG: SDB  = ${SDB}"
+
+query "SELECT 1"
+err "DEBUG: ${res}"
+
+if [ ${res} != 1 ]; then
+    err "ERROR: Unable to query ${MASTER}. Check your parameters"
+    exit 1
+fi
+
+query "SELECT IP_ADDR FROM information_schema.MV_HOSTS_INFORMATION"
+err "DEBUG: ${res}"
+HOSTS=${res}
+
+TOOLBOX_HOSTS=`${SDB} list-hosts -q`
+
+# If Tools is already configured, or half baked, let's ask the user if he wants to start over
+if [ ! -z "${TOOLBOX_HOSTS}" ]; then
+    err "INFO: Toolbox seems to be already configured. Should we remove all hosts?"
+    while true; do
+        read -p "Reset SingleStore Tool configuration? (Y/N): " yn
+        case $yn in
+            [Yy]* ) reset_toolbox; break;;
+            [Nn]* ) exit;;
+            * ) err "ERROR: Please answer yes or no.";;
+        esac
+    done
+fi
+
+isfirst=1
+
+# Let's register all hosts
+for host in $HOSTS
+do
+    err "INFO: Registering host ${host}"
+    if [ ${isfirst} != 1 ]; then
+        if [ -z "${SSH_KEY}" ]; then
+            err "ERROR: Sorry. You have more than 1 one host in your cluster but you have not provided a SSH key. Exiting."
+            exit 1
+        else
+            res=`${SDB} register-host --allow-duplicate-host-fingerprints --host ${host} --identity-file ${SSH_KEY} -y`
+            err "INFO: ${res}"
+        fi
+    else
+	res=`${SDB} register-host --host ${host} --localhost -y`
+        isfirst=0
+    fi
+done
+
+# Let's add the aggregators
+#singlestore> SELECT HOST,PORT FROM AGGREGATORS;
+#+------------+------+
+#| HOST       | PORT |
+#+------------+------+
+#| 10.0.3.14  | 3306 |
+#| 10.0.3.163 | 3306 |
+#+------------+------+
+err "INFO: Discovering AGGREGATORS..."
+query "SELECT HOST,PORT FROM information_schema.AGGREGATORS"
+err "DEBUG: ${res}"
+
+# And, finally add the leaves
+#singlestore> SELECT HOST,PORT FROM LEAVES;
+#+------------+------+
+#| HOST       | PORT |
+#+------------+------+
+#| 10.0.3.163 | 3307 |
+#| 10.0.3.14  | 3307 |
+#+------------+------+
+err "INFO: Discovering LEAVES..."
+query "SELECT HOST,PORT FROM information_schema.LEAVES"
+err "DEBUG: ${res}"
