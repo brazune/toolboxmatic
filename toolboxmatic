@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#######################################
+# Display an error message.
+# Arguments:
+#   String.
+# Returns:
+#   0
+#######################################
+err() {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+}
+
+
+echo Hi! I am toolboxmatic, your automatic SingleStore Toolbox configurator!
+echo =========================================================================
+echo
+
+read -p "Master Aggreator [localhost]: " MASTER
+read -p "Master Aggregator Port [3306]: " MA_PORT
+read -p "Username [root]: " DB_USER
+read -p "Password []:" DB_PASS
+read -p "SSH key (enter full path or leave empty for single host deployment) []: " SSH_KEY
+
+if [ -z "${MASTER}" ]; then
+    MASTER="localhost"
+fi
+
+if [ -z "${MA_PORT}" ]; then
+    MA_PORT="3306"
+fi
+
+if [ -z "${DB_USER}" ]; then
+    DB_USER="root"
+fi
+
+echo
+echo "MA   = ${MASTER}"
+echo "PORT = ${MA_PORT}"
+echo "USER = ${DB_USER}"
+echo "PASS = ${DB_PASS}"
+echo "SSH  = ${SSH_KEY}"
+echo
+
+# Let's check if the CLI is installed...
+CLI=`which singlestore`
+
+if [ -z "${CLI}" ]; then
+    CLI=`which memsql`
+elif [ -z "${CLI}" ]; then
+    CLI=`which mysql`
+elif [ -z "${CLI}" ]; then
+    err "CLI not found. Please install package singlestore-client. For more information visit: https://docs.singlestore.com/db/latest/en/user-and-cluster-administration/cluster-management-with-tools/singlestore-tools-installation/singlestore-client-installation.html"
+    exit 1;
+fi
