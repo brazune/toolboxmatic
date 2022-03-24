@@ -11,6 +11,16 @@ err() {
   echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
 }
 
+#######################################
+# Issues a query
+# Arguments:
+#   String.
+# Returns:
+#   Returns
+#######################################
+query() {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+}
 
 echo Hi! I am toolboxmatic, your automatic SingleStore Toolbox configurator!
 echo =========================================================================
@@ -34,14 +44,6 @@ if [ -z "${DB_USER}" ]; then
     DB_USER="root"
 fi
 
-echo
-echo "MA   = ${MASTER}"
-echo "PORT = ${MA_PORT}"
-echo "USER = ${DB_USER}"
-echo "PASS = ${DB_PASS}"
-echo "SSH  = ${SSH_KEY}"
-echo
-
 # Let's check if the CLI is installed...
 CLI=`which singlestore`
 
@@ -50,6 +52,21 @@ if [ -z "${CLI}" ]; then
 elif [ -z "${CLI}" ]; then
     CLI=`which mysql`
 elif [ -z "${CLI}" ]; then
-    err "CLI not found. Please install package singlestore-client. For more information visit: https://docs.singlestore.com/db/latest/en/user-and-cluster-administration/cluster-management-with-tools/singlestore-tools-installation/singlestore-client-installation.html"
+    err "ERROR: CLI not found. Please install package singlestore-client. For more information visit: https://docs.singlestore.com/db/latest/en/user-and-cluster-administration/cluster-management-with-tools/singlestore-tools-installation/singlestore-client-installation.html"
     exit 1;
 fi
+
+# Let's check if toolbox is installed...
+CLI=`which sdb-toolbox-config`
+
+if [ -z "${CLI}" ]; then
+    err "ERROR: SingleStore Tools are not found. Please install package singlestoredb-toolbox. For more information visit: https://docs.singlestore.com/db/v7.6/en/user-and-cluster-administration/migrate-from-ops-to-tools/sudo/install-singlestore-tools.html"
+    exit 1;
+fi
+
+err("DEBUG: MA   = ${MASTER}")
+err("DEBUG: PORT = ${MA_PORT}")
+err("DEBUG: USER = ${DB_USER}")
+err("DEBUG: PASS = ${DB_PASS}")
+err("DEBUG: SSH  = ${SSH_KEY}")
+err("DEBUG: CLI  = ${CLI}")
