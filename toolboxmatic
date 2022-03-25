@@ -45,6 +45,8 @@ query() {
     res=$(eval $cmd)
 }
 
+
+echo =========================================================================
 echo Welcome to toolboxmatic, your automatic SingleStore Toolbox configurator!
 echo =========================================================================
 echo
